@@ -13,3 +13,7 @@
 *.a
 *sdf
 *.suo
+DirtyBit/Debug*
+*.ilk
+*.pdb
+*.exe
