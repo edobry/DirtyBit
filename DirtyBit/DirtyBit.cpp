@@ -66,16 +66,16 @@ void readOpts(){
 
 enum Action{ Read, Write };
 
-struct Reference{
-	int addr;
-	Action action;
+const struct Reference{
+	const int addr;
+	const Action action;
 
 	Reference(int addr, Action action) : addr(addr), action(action) {}
 };
 
 struct Process {
 public:
-	int ID;
+	const int ID;
 
 	void AddReference(int id, Action action){
 		references.push(new Reference(id, action));
@@ -201,7 +201,7 @@ struct Page{
 class PageTable {
 public:
 	Page* GetPageAtAddress(int addr){
-		int pageNum = floor(addr / DirtyBitOptions.pageSize);
+		int pageNum = addr / DirtyBitOptions.pageSize;
 		int offset = addr - (pageNum * DirtyBitOptions.pageSize);
 		cout << "Getting page #" << pageNum << " with offset " << offset << endl;
 		return pages[pageNum];
