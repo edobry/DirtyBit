@@ -73,6 +73,38 @@ const struct Reference{
 	Reference(int addr, Action action) : addr(addr), action(action) {}
 };
 
+struct Frame;
+
+struct Page{
+	Frame* frame;
+	bool valid;
+	bool referenced;
+	bool dirty;
+};
+
+class PageTable {
+public:
+	Page* GetPageAtAddress(int addr){
+		int pageNum = addr / DirtyBitOptions.pageSize;
+		int offset = addr - (pageNum * DirtyBitOptions.pageSize);
+		cout << "Getting page #" << pageNum << " with offset " << offset << endl;
+		return pages[pageNum];
+	}
+
+	Page* GetPageAtIndex(int index){ return pages.at(index); }
+
+	int Count(){ return pages.size(); }
+
+	PageTable(){
+		int numPages = pow(2, DirtyBitOptions.VAbits)/DirtyBitOptions.pageSize;
+
+		for(; numPages > 0; numPages--)
+			pages.push_back(new Page());
+	}
+private:
+	vector<Page*> pages;
+};
+
 struct Process {
 public:
 	const int ID;
@@ -87,9 +119,58 @@ public:
 		return ref;
 	}
 
-	Process(int id) : ID(id) { references = queue<Reference*>(); }
+	bool IsAnyPageReferencingFrameDirty(Frame* frame){
+		for(int i = 0; i < pages->Count(); i++) 
+			if(pages->GetPageAtIndex(i)->dirty)
+				return true;
+		
+		return false;
+	}
+
+	Process(int id) : ID(id), waitTime(0) {
+		references = queue<Reference*>();
+		pages = new PageTable();
+	}
 private:
 	queue<Reference*> references;
+	PageTable* pages;
+	int waitTime;
+};
+
+struct Frame {
+	Process* owner;
+	int waitTime;
+
+	Frame() : owner(NULL), waitTime(0) {}
+};
+
+class FrameTable {
+public:
+	void DecrementWait(){
+		for(int i = 0; i < frames.size; i++) {
+			if (frames[i]->waitTime > 0)
+				frames[i]->waitTime--;
+		}
+	}
+
+	void ReleaseProcessFrames(Process* owner){
+		for (int i = 0; i < frames.size; ++i) {
+			Frame* curr = frames[i];
+			if (curr->owner == owner) {
+				curr->owner = NULL;
+				//foreach frame where referencing page is dirty, set frame waitTime = dirtyPagePenalty
+				if(owner->IsAnyPageReferencingFrameDirty(curr))
+					curr->waitTime = DirtyBitOptions.dirtyPagePenalty;
+			}
+		}
+	}
+
+	FrameTable() {
+		int numFrames = pow(2, DirtyBitOptions.VAbits - DirtyBitOptions.PAbits);
+		frames = vector<Frame*>(numFrames);
+	}
+private:
+	vector<Frame*> frames;
 };
 
 struct ProcessNode{
@@ -161,14 +242,14 @@ void readProcesses(ProcessQueue& processes){
 		{
 			getline(processFile, line);
 			int numProc = atoi(line.c_str());
-			
+
 			for(; numProc > 0; numProc--){
 				//Skip line				
 				getline(processFile, line);
 
 				getline(processFile, line);				
 				int pid = atoi(line.c_str());
-				
+
 				getline(processFile, line);				
 				int numRef = atoi(line.c_str());
 
@@ -183,7 +264,7 @@ void readProcesses(ProcessQueue& processes){
 					int refId;
 					string action;
 					ss >> refId >> action;
-					
+
 					newProc->AddReference(refId, action == "R" ? Read : Write);
 				}
 			}
@@ -193,36 +274,6 @@ void readProcesses(ProcessQueue& processes){
 		cout << "Processes queued: " << processes.Count() << endl;
 	}
 }
-
-struct Page{
-	int startAddress;
-};
-
-class PageTable {
-public:
-	Page* GetPageAtAddress(int addr){
-		int pageNum = addr / DirtyBitOptions.pageSize;
-		int offset = addr - (pageNum * DirtyBitOptions.pageSize);
-		cout << "Getting page #" << pageNum << " with offset " << offset << endl;
-		return pages[pageNum];
-	}
-
-	PageTable(){
-		int numPages = pow(2, DirtyBitOptions.VAbits)/DirtyBitOptions.pageSize;
-
-		for(; numPages > 0; numPages--)
-			pages.push_back(new Page());
-	}
-private:
-	vector<Page*> pages;
-};
-
-struct PageTableEntry{
-	int frameNum;
-	int validBits;
-	int referencedBits;
-	int dirtyBits;
-};
 
 int main(int argc, char* argv[])
 {
