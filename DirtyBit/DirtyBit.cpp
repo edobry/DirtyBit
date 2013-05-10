@@ -119,6 +119,10 @@ public:
 		this->waitTime = waitTime;
 	}
 
+	int getWaitTime() {
+		return this->waitTime;
+	}
+
 	void AddReference(int id, Action action){
 		references.push(new Reference(id, action));
 	}
@@ -161,16 +165,18 @@ struct Frame {
 };
 
 class FrameTable {
+private:
+	vector<Frame*> frames;
 public:
 	void DecrementWait(){
-		for(int i = 0; i < frames.size; i++) {
+		for(int i = 0; i < frames.size(); i++) {
 			if (frames[i]->waitTime > 0)
 				frames[i]->waitTime--;
 		}
 	}
 
 	void ReleaseProcessFrames(Process* owner){
-		for (int i = 0; i < frames.size; ++i) {
+		for (int i = 0; i < frames.size(); ++i) {
 			Frame* curr = frames[i];
 			if (curr->owner == owner) {
 				curr->owner = NULL;
@@ -182,17 +188,23 @@ public:
 	}
 
 	Frame* GetFirstUnownedFrame(){
-		for(int i = 0; i < frames.size; i++)
+		for(int i = 0; i < frames.size(); i++)
 			if(frames[i]->owner == NULL)
 				return frames[i];
+	}
+
+	int size() {
+		return frames.size();
+	}
+
+	Frame* atPosition(int i) {
+		return frames[i];
 	}
 
 	FrameTable() {
 		int numFrames = pow(2, DirtyBitOptions.VAbits - DirtyBitOptions.PAbits);
 		frames = vector<Frame*>(numFrames);
 	}
-private:
-	vector<Frame*> frames;
 };
 
 struct ProcessNode{
@@ -328,6 +340,22 @@ int main(int argc, char* argv[])
 			//set frame owner to current process
 			frame->owner = current;
 
+			Frame* curFrame;
+			for (int i = 0; i < frameTable.size(); i++) { // How to check if a frame has been used recently...?
+				curFrame = frameTable.atPosition(i);
+				if (curFrame->owner) { /// ??? What goes here?
+
+				} else if (curFrame->waitTime == 0) {
+					page->AssignFrame(curFrame);
+					page->valid = true; // But we just set these two to true above...
+					page->referenced = true; 
+					if (page->dirty) // But we set this to false above... this should never run
+						current->setWaitTime(current->getWaitTime() + DirtyBitOptions.dirtyPagePenalty);
+					// How to find the previous owner?
+					curFrame->owner = current;
+					break;
+				}
+			}
 			// if the page is not valid, no free frame has been found
 				//look for frames that have not been used recently
 				//loop through frames:
