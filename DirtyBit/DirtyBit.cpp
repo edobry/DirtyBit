@@ -115,6 +115,10 @@ struct Process {
 public:
 	const int ID;
 
+	void setWaitTime(int waitTime) {
+		this->waitTime = waitTime;
+	}
+
 	void AddReference(int id, Action action){
 		references.push(new Reference(id, action));
 	}
@@ -308,12 +312,21 @@ int main(int argc, char* argv[])
 		Page* page = current->GetReferencedPage(curRef);
 		if(page->valid){
 			//if reference is a write, mark the page it refers to as dirty
+			if (curRef->action == Action::Write)
+				page->dirty = true;
 		}
 		else{
 			Frame* frame = frameTable.GetFirstUnownedFrame();
 			//assign to page, mark page as valid and referenced, and not dirty
+			page->AssignFrame(frame);
+			page->valid = true;
+			page->referenced = true;
+			page->dirty = false;
 			//set process waitTime to missPenalty
+			current->setWaitTime(DirtyBitOptions.missPenalty);
+			
 			//set frame owner to current process
+			frame->owner = current;
 
 			// if the page is not valid, no free frame has been found
 				//look for frames that have not been used recently
