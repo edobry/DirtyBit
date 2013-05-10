@@ -76,10 +76,16 @@ const struct Reference{
 struct Frame;
 
 struct Page{
-	Frame* frame;
+	Frame* frameRef;
 	bool valid;
 	bool referenced;
 	bool dirty;
+
+	void AssignFrame(Frame* frame) {
+		frameRef = frame;
+	}
+
+	Page() : valid(true) {}
 };
 
 class PageTable {
@@ -118,6 +124,12 @@ public:
 		references.pop();
 		return ref;
 	}
+
+	Page* GetReferencedPage(Reference* ref){
+		return pages->GetPageAtAddress(ref->addr);
+	}
+
+	bool IsPageReferenced(*
 
 	bool IsAnyPageReferencingFrameDirty(Frame* frame){
 		for(int i = 0; i < pages->Count(); i++) 
@@ -163,6 +175,12 @@ public:
 					curr->waitTime = DirtyBitOptions.dirtyPagePenalty;
 			}
 		}
+	}
+
+	Frame* GetFirstUnownedFrame(){
+		for(int i = 0; i < frames.size; i++)
+			if(frames[i]->owner == NULL)
+				return frames[i];
 	}
 
 	FrameTable() {
@@ -280,13 +298,35 @@ int main(int argc, char* argv[])
 	ProcessQueue queue = ProcessQueue();
 	readOpts();
 	readProcesses(queue);
-
-	PageTable table = PageTable();
+	
+	FrameTable frameTable = FrameTable();
 
 	Process* current = queue.GoToFront()->value;
 	cout << "Current Process: " << current->ID << endl;
 	while(true){
 		Reference* curRef = current->GetNextReference();
-		table.GetPageAtAddress(curRef->addr);
+		Page* page = current->GetReferencedPage(curRef);
+		if(page->valid){
+			//if reference is a write, mark the page it refers to as dirty
+		}
+		else{
+			Frame* frame = frameTable.GetFirstUnownedFrame();
+			//assign to page, mark page as valid and referenced, and not dirty
+			//set process waitTime to missPenalty
+			//set frame owner to current process
+
+			// if the page is not valid, no free frame has been found
+				//look for frames that have not been used recently
+				//loop through frames:
+					//if any frame is owned by a process which has a page with this... WTF SIMON
+					//else, if any frame has a waitTime of 0
+						//assign to page, mark page as valid and referenced
+						//if dirty, add dirtyPagePenalty to process waitTime
+						//set previous owner's page to not valid
+						//set frame owner to current process
+						//break
+				//if page is invalid, do that^ loop... WTF SIMON
+		}
+
 	}
 }
