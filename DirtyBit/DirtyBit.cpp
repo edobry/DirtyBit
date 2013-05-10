@@ -191,6 +191,7 @@ public:
 		for(int i = 0; i < frames.size(); i++)
 			if(frames[i]->owner == NULL)
 				return frames[i];
+		return NULL;
 	}
 
 	int size() {
@@ -330,32 +331,18 @@ int main(int argc, char* argv[])
 		else{
 			Frame* frame = frameTable.GetFirstUnownedFrame();
 			//assign to page, mark page as valid and referenced, and not dirty
-			page->AssignFrame(frame);
-			page->valid = true;
-			page->referenced = true;
-			page->dirty = false;
-			//set process waitTime to missPenalty
-			current->setWaitTime(DirtyBitOptions.missPenalty);
+			if (frame != NULL) {
+				page->AssignFrame(frame);
+				page->valid = true;
+				page->referenced = true;
+				page->dirty = false;
+				//set process waitTime to missPenalty
+				current->setWaitTime(DirtyBitOptions.missPenalty);
 			
-			//set frame owner to current process
-			frame->owner = current;
-
-			Frame* curFrame;
-			for (int i = 0; i < frameTable.size(); i++) { // How to check if a frame has been used recently...?
-				curFrame = frameTable.atPosition(i);
-				if (curFrame->owner) { /// ??? What goes here?
-
-				} else if (curFrame->waitTime == 0) {
-					page->AssignFrame(curFrame);
-					page->valid = true; // But we just set these two to true above...
-					page->referenced = true; 
-					if (page->dirty) // But we set this to false above... this should never run
-						current->setWaitTime(current->getWaitTime() + DirtyBitOptions.dirtyPagePenalty);
-					// How to find the previous owner?
-					curFrame->owner = current;
-					break;
-				}
+				//set frame owner to current process
+				frame->owner = current;
 			}
+			
 			// if the page is not valid, no free frame has been found
 				//look for frames that have not been used recently
 				//loop through frames:
@@ -367,6 +354,24 @@ int main(int argc, char* argv[])
 						//set frame owner to current process
 						//break
 				//if page is invalid, do that^ loop... WTF SIMON
+			if (!page->valid) {
+				Frame* curFrame;
+				Reference* fRef;
+				Page* fPage;
+				for (int i = 0; i < frameTable.size(); i++) {
+					curFrame = frameTable.atPosition(i);
+					if (curFrame->waitTime == 0) {
+						page->AssignFrame(curFrame);
+						page->valid = true;
+						page->referenced = true; 
+						if (curFrame->owner->GetReferencedPage(fRef)->dirty)
+							current->setWaitTime(current->getWaitTime() + DirtyBitOptions.dirtyPagePenalty);
+						curFrame->owner->GetReferencedPage(fRef)->valid = false;
+						curFrame->owner = current;
+						break;
+					}
+				}
+			}
 		}
 
 	}
